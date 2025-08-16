@@ -1,0 +1,7 @@
+# Trusted domains for content discovery
+# One domain per line, supports wildcards
+*.gov
+*.edu
+*.org
+wikipedia.org
+arxiv.org

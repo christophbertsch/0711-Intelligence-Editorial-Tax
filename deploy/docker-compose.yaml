@@ -1,0 +1,135 @@
+version: "3.9"
+services:
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  flower:
+    image: mher/flower
+    command: ["celery", "--broker=redis://redis:6379/0", "flower", "--port=5555"]
+    ports: 
+      - "5555:5555"
+    depends_on:
+      - redis
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+
+  orchestrator:
+    build: 
+      context: ../
+      dockerfile: apps/orchestrator/Dockerfile
+    env_file: ../.env
+    ports: 
+      - "8080:8080"
+    depends_on:
+      - redis
+    command: uvicorn main:app --host 0.0.0.0 --port 8080 --reload
+    volumes:
+      - ../configs:/app/configs:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  worker-discovery:
+    build: 
+      context: ../
+      dockerfile: apps/worker-discovery/Dockerfile
+    env_file: ../.env
+    depends_on:
+      - redis
+    command: celery -A tasks worker --loglevel=INFO --queues=discovery --concurrency=2
+    volumes:
+      - ../configs:/app/configs:ro
+
+  worker-intake:
+    build: 
+      context: ../
+      dockerfile: apps/worker-intake/Dockerfile
+    env_file: ../.env
+    depends_on:
+      - redis
+    command: celery -A tasks worker --loglevel=INFO --queues=intake --concurrency=4
+    volumes:
+      - ../configs:/app/configs:ro
+
+  worker-understanding:
+    build: 
+      context: ../
+      dockerfile: apps/worker-understanding/Dockerfile
+    env_file: ../.env
+    depends_on:
+      - redis
+    command: celery -A tasks worker --loglevel=INFO --queues=understanding --concurrency=2
+    volumes:
+      - ../configs:/app/configs:ro
+
+  worker-editorial:
+    build: 
+      context: ../
+      dockerfile: apps/worker-editorial/Dockerfile
+    env_file: ../.env
+    depends_on:
+      - redis
+    command: celery -A tasks worker --loglevel=INFO --queues=editorial --concurrency=2
+    volumes:
+      - ../configs:/app/configs:ro
+
+  worker-ingestion:
+    build: 
+      context: ../
+      dockerfile: apps/worker-ingestion/Dockerfile
+    env_file: ../.env
+    depends_on:
+      - redis
+    command: celery -A tasks worker --loglevel=INFO --queues=ingestion --concurrency=3
+    volumes:
+      - ../configs:/app/configs:ro
+
+  ui-search:
+    build: 
+      context: ../
+      dockerfile: apps/ui-search/Dockerfile
+    env_file: ../.env
+    ports: 
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+
+volumes:
+  redis_data:
+  prometheus_data:
+  grafana_data:

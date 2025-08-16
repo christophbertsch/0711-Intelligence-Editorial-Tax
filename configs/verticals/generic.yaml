@@ -1,0 +1,33 @@
+name: generic
+language: auto
+discovery:
+  freshness: 30d
+  max_results: 25
+  queries:
+    - "{topic} latest updates"
+    - "{topic} official guidelines"
+    - "{topic} case law"
+  allowlist: []   # optional domains
+  denylist: []    # spam domains
+intake:
+  render_js: false
+  pdf: true
+understanding:
+  doc_types: ["guideline","article","faq","ruling","spec","datasheet"]
+  entity_schemas:
+    - Statute
+    - Case
+    - Organization
+    - Form
+    - Concept
+editorial:
+  abstract_max_tokens: 280
+  style: neutral
+quality:
+  corroborations_required: 2
+  max_claims_per_doc: 10
+ingestion:
+  collection: "vertical_generic"
+  hybrid_search_default: true
+watch:
+  recrawl_hours: 6

@@ -1,0 +1,8 @@
+# Blocked domains for content discovery
+# One domain per line, supports wildcards
+*.spam.com
+*.ads.com
+facebook.com
+twitter.com
+reddit.com
+pinterest.com

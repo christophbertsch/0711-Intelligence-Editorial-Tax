@@ -1,0 +1,241 @@
+version: "1.0"
+vertical: "tax_de"
+jurisdiction: "DE"
+locales: ["de-DE"]
+default_year: 2024
+
+scheduler:
+  global_rate_limit_rps: 1.5
+  max_parallel_domains: 3
+  default_recrawl_days: 14
+  high_priority_recrawl_days: 3
+  retry_backoff_seconds: [5, 15, 60, 180]
+  pdf_ocr: "on_demand"
+  respect_robots_txt: true
+  store_headers: ["ETag", "Last-Modified", "Content-Type", "Content-Length"]
+
+tavily_defaults:
+  search_depth: "advanced"
+  time_range: "365d"
+  max_results: 25
+  language: "de"
+  include_answer: false
+  include_domains: []
+  exclude_domains: []
+
+evidence_policy:
+  allow_secondary: false
+  require_primary_citation: true
+  min_citation_coverage: 0.95
+
+whitelist_sources:
+  - domain: "www.gesetze-im-internet.de"
+    type: "LAW"
+    priority: 10
+    sitemaps: ["https://www.gesetze-im-internet.de/sitemap.xml"]
+  - domain: "www.bgbl.de"
+    type: "GAZETTE"
+    priority: 9
+    sitemaps: []
+  - domain: "www.bundesfinanzministerium.de"
+    type: "BMF"
+    priority: 10
+    sitemaps: ["https://www.bundesfinanzministerium.de/SiteGlobals/Functions/Sitemap/Sitemap-DE.xml"]
+  - domain: "www.bundesfinanzhof.de"
+    type: "RULING"
+    priority: 9
+    sitemaps: []
+  - domain: "www.bzst.de"
+    type: "ADMIN"
+    priority: 8
+    sitemaps: []
+  - domain: "www.elster.de"
+    type: "FORM"
+    priority: 9
+    sitemaps: []
+  - domain: "eur-lex.europa.eu"
+    type: "EU_LAW"
+    priority: 7
+    sitemaps: []
+
+blacklist_domains:
+  - "wikipedia.org"
+  - "reddit.com"
+  - "anwalt.de"
+  - "kanzlei-blogs.*"
+  - "kommerzielle-news-portale.*"
+  - "steuertipps-blogs.*"
+  - "youtube.com"
+  - "facebook.com"
+  - "instagram.com"
+  - "linkedin.com"
+
+rate_limits:
+  per_domain:
+    "www.gesetze-im-internet.de":
+      rps: 0.5
+      burst: 2
+    "www.bgbl.de":
+      rps: 0.4
+      burst: 2
+    "www.bundesfinanzministerium.de":
+      rps: 0.5
+      burst: 2
+    "www.bundesfinanzhof.de":
+      rps: 0.4
+      burst: 1
+    "www.bzst.de":
+      rps: 0.5
+      burst: 2
+    "www.elster.de":
+      rps: 0.4
+      burst: 1
+    "eur-lex.europa.eu":
+      rps: 0.3
+      burst: 1
+
+parse_hints:
+  html:
+    prefer: ["print", "singlepage"]
+    strip: ["nav", "footer", "cookie", "js"]
+    keep_tables: true
+  pdf:
+    ocr_threshold_dpi: 300
+    detect_layout: true
+    extract_tables: true
+    keep_page_coords: true
+  chunking:
+    LAW:
+      by: ["§", "Abs\\.", "Satz", "Nr\\."]
+      max_chars: 2000
+    BMF:
+      by: ["Randziffer", "Ziffer", "Abschnitt", "Rn\\."]
+      max_chars: 1800
+    RULING:
+      by: ["Leitsatz", "Tatbestand", "Gründe", "Rn\\."]
+      max_chars: 1800
+    FORM:
+      by: ["Formularteil", "Zeile", "KZ", "Anlage"]
+      max_chars: 1600
+    EU_LAW:
+      by: ["Artikel", "Absatz", "Erwägungsgrund"]
+      max_chars: 1800
+
+canonicalization:
+  strip_query_params: ["utm_*", "fbclid", "gclid", "wt_mc", "wt_zmc"]
+  prefer_canonical_link: true
+  normalize_trailing_slash: true
+
+dedupe:
+  fingerprint: ["canonical_url", "sha256_content"]
+  near_duplicate:
+    minhash_bands: 20
+    threshold: 0.82
+
+identifier_patterns:
+  statute: "§\\s*\\d+[a-zA-Z]*\\s*(EStG|UStG|KStG|GewStG|AO|EStDV|UStDV|BewG)"
+  eu_directive: "(2006/112/EG|MwSt\\-Systemrichtlinie)"
+  case_citation: "(BFH|BStBl|Az\\.|Aktenzeichen)\\s*[:A-Z0-9\\-/\\.]+"
+
+link_rules:
+  - from: "BMF"
+    to: "LAW"
+    relation: "INTERPRETS"
+    pattern: "EStG|UStG|KStG|GewStG|AO|EStDV|UStDV|BewG"
+  - from: "RULING"
+    to: "LAW"
+    relation: "APPLIES"
+    pattern: "§\\s*\\d+\\s*[a-zA-Z]*\\s*(EStG|UStG|KStG|GewStG|AO|BewG)"
+  - from: "FORM"
+    to: "LAW"
+    relation: "MAPS_TO"
+    pattern: "Kennziffer|Zeile|Anlage"
+  - from: "EU_LAW"
+    to: "UStG"
+    relation: "HARMONIZES"
+    pattern: "MwSt\\-Systemrichtlinie|Richtlinie\\s*2006/112/EG"
+
+topics:
+  - id: "ESt_Core"
+    title: "Einkommensteuer – Grundlagen, Tarife, Veranlagung"
+    priority: "high"
+    update_cadence_days: 14
+    queries:
+      LAW:
+        - "site:www.gesetze-im-internet.de Einkommensteuergesetz 2024"
+        - "site:www.gesetze-im-internet.de EStG § 2 2024"
+        - "site:www.gesetze-im-internet.de EStG § 32a Tarif 2024"
+      BMF:
+        - "site:www.bundesfinanzministerium.de BMF-Schreiben Einkommensteuer 2024"
+        - "site:www.bundesfinanzministerium.de Anwendungserlass Einkommensteuer 2024"
+      RULING:
+        - "site:www.bundesfinanzhof.de Einkommensteuer Leitsatz 2024"
+        - "site:www.bundesfinanzhof.de EStG § 32a Urteil 2024"
+    extract: ["Tarifformeln", "Freibetraege", "Veranlagungsarten", "Begriffsdefinitionen (§2 EStG)"]
+    form_map_targets: ["ESt1A"]
+
+  - id: "USt_Core"
+    title: "Umsatzsteuer – Grundsystem & Voranmeldung"
+    priority: "high"
+    update_cadence_days: 10
+    queries:
+      LAW:
+        - "site:www.gesetze-im-internet.de Umsatzsteuergesetz 2024"
+        - "site:eur-lex.europa.eu 2006/112/EG Mehrwertsteuer 2024"
+      BMF:
+        - "site:www.bundesfinanzministerium.de USt Anwendungserlass 2024"
+        - "site:www.bundesfinanzministerium.de BMF Schreiben Umsatzsteuer 2024"
+      FORM:
+        - "site:www.elster.de UStVA Kennziffern 2024"
+        - "site:www.elster.de USt-2A Jahreserklärung Anleitung 2024"
+      RULING:
+        - "site:www.bundesfinanzhof.de UStG § 15 Vorsteuer Urteil 2024"
+    extract: ["Steuerbarkeit", "Steuersätze", "Vorsteuerabzug", "Reverse Charge", "IG-Lieferungen", "Kleinunternehmer §19"]
+    form_map_targets: ["UStVA", "USt-2A", "ZM", "OSS"]
+
+tavily_overrides:
+  LAW:
+    time_range: "all"
+    max_results: 50
+    search_depth: "advanced"
+  BMF:
+    time_range: "730d"
+    max_results: 40
+    search_depth: "advanced"
+  RULING:
+    time_range: "1825d"
+    max_results: 40
+    search_depth: "advanced"
+  FORM:
+    time_range: "730d"
+    max_results: 30
+    search_depth: "advanced"
+  EU_LAW:
+    time_range: "all"
+    max_results: 40
+    search_depth: "advanced"
+
+exclusions:
+  url_patterns:
+    - ".*\\?(utm_|wt_mc|wt_zmc|gclid|fbclid).*"
+    - ".*/share/.*"
+    - ".*/suche\\?.*"
+    - ".*/druckversion.*"
+  mime_types: ["image/*", "video/*", "audio/*"]
+  max_pdf_pages: 800
+
+output_mapping:
+  collection: "tax_de"
+  doc_type_map:
+    LAW: "law"
+    GAZETTE: "gazette"
+    BMF: "guideline"
+    RULING: "ruling"
+    FORM: "form"
+    EU_LAW: "eu_law"
+    ADMIN: "admin_notice"
+    PARLIAMENT: "parliament"
+    STATE_FINMIN: "state_notice"
+    JUSTICE: "justice_notice"
+  graph_entities: ["Statute", "Case", "Guideline", "Form", "Concept"]
+  edges: ["INTERPRETS", "APPLIES", "MAPS_TO", "HARMONIZES"]
